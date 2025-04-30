@@ -1,0 +1,47 @@
+config {
+  type: "table",
+  schema: "volvo",
+  name: "daily_lead_forecast",
+  description: "forecast by week"
+}
+
+WITH month_forecast AS (
+  -- Convert 'Jan-25' into a DATE format and get number of days in the month
+  SELECT 
+    PARSE_DATE('%b-%y', Date) AS month_start,
+    DATE_TRUNC(PARSE_DATE('%b-%y', Date), MONTH) AS month_date,
+    DATE_SUB(DATE_ADD(DATE_TRUNC(PARSE_DATE('%b-%y', Date), MONTH), INTERVAL 1 MONTH), INTERVAL 1 DAY) AS month_end, -- Ensure DATE type
+    EXTRACT(YEAR FROM PARSE_DATE('%b-%y', Date)) AS year,
+    EXTRACT(MONTH FROM PARSE_DATE('%b-%y', Date)) AS month,
+    DATE_DIFF(DATE_ADD(DATE_TRUNC(PARSE_DATE('%b-%y', Date), MONTH), INTERVAL 1 MONTH), DATE_TRUNC(PARSE_DATE('%b-%y', Date), MONTH), DAY) AS days_in_month,
+    `online_forecast` AS online_forecast,
+    `offline_forecast` AS offline_forecast,
+    `total_forecast` AS total_forecast
+  FROM `metricmavens.volvo.monthly_leads_forecast`
+),
+
+daily_forecast AS (
+  -- Generate all days for each month with their corresponding daily target
+  SELECT 
+    day_date AS date,
+    FORMAT_DATE('%G-W%V', day_date) AS iso_year_week,
+    #month_forecast.month AS month,
+    online_forecast / days_in_month AS daily_online_forecast,
+    offline_forecast / days_in_month AS daily_offline_forecast,
+    total_forecast / days_in_month AS daily_total_forecast
+  FROM month_forecast
+  JOIN UNNEST(GENERATE_DATE_ARRAY(month_start, month_end, INTERVAL 1 DAY)) AS day_date -- Generate all dates
+)
+
+SELECT * FROM daily_forecast
+
+pre_operations {
+  CREATE TABLE IF NOT EXISTS ${self()} (
+    date DATE,
+    iso_year_week STRING,
+    daily_online_forecast FLOAT64,
+    daily_offline_forecast FLOAT64,
+    daily_total_forecast FLOAT64,
+  ) ;
+}
+

@@ -1,0 +1,42 @@
+config {
+  type: "table",
+  schema: "volvo",
+  name: "leads_model_daily_final",
+  description: "daily model leads aggregated joined with targets and forecast"
+}
+
+WITH final AS(
+SELECT 
+    COALESCE(ft.date, l.date) AS date,  -- Ensure all dates from daily_leads_model are included
+    COALESCE(ft.iso_year_week, l.year_week) AS year_week,  
+    COALESCE(ft.model_name, l.model_name) AS model_name,  -- Take model from either table
+    COALESCE(ft.lead_type, l.lead_type) AS lead_type,  -- Take lead type from either table
+    ft.daily_target AS target,  
+    ft.daily_forecast AS forecast,  
+    (COALESCE(ft.daily_target, 0) - COALESCE(ft.daily_forecast, 0)) AS gap,  -- Gap calculation
+    COALESCE(l.leads, 0) AS leads  
+FROM 
+    ${ref("daily_leads_model")} AS ft  -- Use daily_leads_model as the base table
+FULL OUTER JOIN 
+    ${ref("leads_aggregated_day_model")} AS l  
+    ON ft.date = l.date 
+    AND ft.lead_type = l.lead_type 
+    AND TRIM(COALESCE(ft.model_name, '')) = TRIM(COALESCE(l.model_name, ''))  -- Ensure model names match
+ORDER BY 
+    date, model_name, lead_type
+)
+
+SELECT * FROM final
+
+  pre_operations {
+  CREATE TABLE IF NOT EXISTS ${self()} (
+    date DATE,
+    year_week STRING,
+    model_name STRING,
+    lead_type STRING,
+    target FLOAT64,
+    forecast FLOAT64,
+    gap FLOAT64,
+    leads INT64
+  ) ;
+}

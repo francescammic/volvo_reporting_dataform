@@ -1,0 +1,53 @@
+config {
+  type: "operations",
+  tags: ["dependencies"],
+  description: "Ensures monthly_leads_target_update table is up to date"
+}
+
+CREATE TABLE IF NOT EXISTS `metricmavens.volvo.monthly_leads_target_update` AS
+SELECT 
+    PARSE_DATE('%b-%y', Date) AS month_start,
+    DATE_TRUNC(PARSE_DATE('%b-%y', Date), MONTH) AS month_date,
+    DATE_SUB(DATE_ADD(DATE_TRUNC(PARSE_DATE('%b-%y', Date), MONTH), INTERVAL 1 MONTH), INTERVAL 1 DAY) AS month_end, 
+    EXTRACT(YEAR FROM PARSE_DATE('%b-%y', Date)) AS year,
+    EXTRACT(MONTH FROM PARSE_DATE('%b-%y', Date)) AS month,
+    DATE_DIFF(DATE_ADD(DATE_TRUNC(PARSE_DATE('%b-%y', Date), MONTH), INTERVAL 1 MONTH), DATE_TRUNC(PARSE_DATE('%b-%y', Date), MONTH), DAY) AS days_in_month,
+    `online_opportunities_target` AS online_target,
+    `offline_opportunities_target` AS offline_target,
+    `total_opportunities_target` AS total_target
+FROM `metricmavens.volvo.monthly_leads_target`;
+
+MERGE `metricmavens.volvo.monthly_leads_target_update` T
+USING (
+  SELECT 
+    PARSE_DATE('%b-%y', Date) AS month_start,
+    DATE_TRUNC(PARSE_DATE('%b-%y', Date), MONTH) AS month_date,
+    DATE_SUB(DATE_ADD(DATE_TRUNC(PARSE_DATE('%b-%y', Date), MONTH), INTERVAL 1 MONTH), INTERVAL 1 DAY) AS month_end, 
+    EXTRACT(YEAR FROM PARSE_DATE('%b-%y', Date)) AS year,
+    EXTRACT(MONTH FROM PARSE_DATE('%b-%y', Date)) AS month,
+    DATE_DIFF(DATE_ADD(DATE_TRUNC(PARSE_DATE('%b-%y', Date), MONTH), INTERVAL 1 MONTH), DATE_TRUNC(PARSE_DATE('%b-%y', Date), MONTH), DAY) AS days_in_month,
+    `online_opportunities_target` AS online_target,
+    `offline_opportunities_target` AS offline_target,
+    `total_opportunities_target` AS total_target
+  FROM `metricmavens.volvo.monthly_leads_target`
+  WHERE PARSE_DATE('%b-%y', Date) >= DATE_TRUNC(CURRENT_DATE(), MONTH)
+) L
+ON T.year = L.year AND T.month = L.month
+AND T.month_start = L.month_start
+AND T.month_end = L.month_end
+WHEN MATCHED AND (
+  T.online_target <> L.online_target OR
+  T.offline_target <> L.offline_target OR
+  T.total_target <> L.total_target
+)
+THEN UPDATE SET
+  T.online_target = L.online_target,
+  T.offline_target = L.offline_target,
+  T.total_target = L.total_target
+WHEN NOT MATCHED THEN INSERT (
+  month_start, month_date, month_end, year, month, days_in_month, online_target, offline_target, total_target
+)
+VALUES (
+  L.month_start, L.month_date, L.month_end, L.year, L.month, L.days_in_month, L.online_target, L.offline_target, L.total_target
+);
+

@@ -1,0 +1,55 @@
+config {
+  type: "table",
+  schema: "volvo",
+  name: "leads_aggregated_day_model",
+  description: "daily model leads aggregated from raw table only up till end of 2025"
+}
+
+WITH all_dates AS (
+  -- Generate a list of all dates from 2022-01-01 to 2025-12-31
+  SELECT DATE '2022-01-01' + INTERVAL x DAY AS date
+  FROM UNNEST(GENERATE_ARRAY(0, 1460)) AS x  -- Covers all days from Jan 1, 2022 to Dec 31, 2025
+),
+
+daily_data AS (
+  SELECT
+    PARSE_DATE('%Y%m%d', Aanmaakdatum) AS date,  
+    FORMAT_DATE('%G-W%V', PARSE_DATE('%Y%m%d', Aanmaakdatum)) AS year_week, 
+    model_name, 
+    leadType AS lead_type,
+    COUNT('Persoonsaccount: Account persoon Consumenten-ID') AS total_leads,
+  FROM `metricmavens.volvo.leads_unaggregated`
+  WHERE FORMAT_DATE('%Y-W%V', PARSE_DATE('%Y%m%d', Aanmaakdatum)) > '2021-W52' 
+  GROUP BY year_week, date, model_name, leadType
+),
+
+final AS(
+SELECT 
+  DATE(ad.date) AS date,
+  FORMAT_DATE('%G-W%V', ad.date) AS year_week,
+  dd.model_name,
+  dd.lead_type,
+  COALESCE(dd.total_leads, 0) AS leads,
+FROM 
+  all_dates ad
+LEFT JOIN 
+  daily_data dd
+ON 
+  ad.date = dd.date
+WHERE 
+  ad.date BETWEEN '2022-01-01' AND '2025-12-31'
+ORDER BY 
+  ad.date DESC, dd.model_name
+)
+
+SELECT * FROM final
+
+  pre_operations {
+  CREATE TABLE IF NOT EXISTS ${self()} (
+    date DATE,
+    year_week STRING,
+    model_name STRING,
+    lead_type STRING,
+    leads INT64
+  ) ;
+}

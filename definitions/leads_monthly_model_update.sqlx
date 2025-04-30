@@ -1,0 +1,58 @@
+config {
+  type: "operations",
+  tags: ["dependencies"],
+  description: "Ensures leads_monthly_model_update table is up to date"
+}
+
+-- Step 1: Create materialized view or table if it does not exist
+CREATE TABLE IF NOT EXISTS `metricmavens.volvo.leads_monthly_model_update` AS
+SELECT
+    DATE(month) AS month_start,  
+    DATE_TRUNC(DATE(month), MONTH) AS month_date,  
+    LAST_DAY(DATE(month)) AS month_end,  
+    EXTRACT(YEAR FROM DATE(month)) AS year,
+    EXTRACT(MONTH FROM DATE(month)) AS month,
+    DATE_DIFF(LAST_DAY(DATE(month)), DATE_TRUNC(DATE(month), MONTH), DAY) + 1 AS days_in_month,  
+    TRIM(model_name) AS model_name,
+    TRIM(lead_type) AS lead_type,
+    target,
+    forecast
+FROM `metricmavens.volvo.leads_monthly_model`;
+
+-- Step 2: Update the table if there are differences in `target` and `forecast` for the current & future months
+MERGE `metricmavens.volvo.leads_monthly_model_update` T
+USING (
+  SELECT
+    DATE(month) AS month_start,  
+    DATE_TRUNC(DATE(month), MONTH) AS month_date,  
+    LAST_DAY(DATE(month)) AS month_end,  
+    EXTRACT(YEAR FROM DATE(month)) AS year,
+    EXTRACT(MONTH FROM DATE(month)) AS month,
+    DATE_DIFF(LAST_DAY(DATE(month)), DATE_TRUNC(DATE(month), MONTH), DAY) + 1 AS days_in_month,  
+    TRIM(model_name) AS model_name,
+    TRIM(lead_type) AS lead_type,
+    target,
+    forecast
+  FROM `metricmavens.volvo.leads_monthly_model`
+  WHERE DATE(month) >= DATE_TRUNC(CURRENT_DATE(), MONTH)
+) L
+ON T.year = L.year 
+AND T.month = L.month 
+AND T.model_name = L.model_name 
+AND T.lead_type = L.lead_type
+AND T.month_start = L.month_start
+AND T.month_end = L.month_end
+WHEN MATCHED AND (
+    T.target IS DISTINCT FROM L.target OR 
+    T.forecast IS DISTINCT FROM L.forecast
+)
+THEN UPDATE SET 
+    T.target = L.target, 
+    T.forecast = L.forecast
+WHEN NOT MATCHED THEN 
+INSERT (
+    month_start, month_date, month_end, year, month, days_in_month, model_name, lead_type, target, forecast
+) VALUES (
+    L.month_start, L.month_date, L.month_end, L.year, L.month, L.days_in_month, L.model_name, L.lead_type, L.target, L.forecast
+);
+

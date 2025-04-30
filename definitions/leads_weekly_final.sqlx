@@ -1,0 +1,52 @@
+config {
+  type: "table",
+  schema: "volvo",
+  name: "leads_weekly_final",
+  description: "weekly leads aggregated joined with targets and forecast"
+}
+
+WITH final AS(
+SELECT 
+  lad.*,
+  dlt.weekly_online_target, 
+  dlt.weekly_offline_target, 
+  dlt.weekly_total_target,
+  dlf.weekly_online_forecast, 
+  dlf.weekly_offline_forecast,
+  dlf.weekly_total_forecast,
+  (dlt.weekly_total_target - dlf.weekly_total_forecast ) AS total_gap,
+  (dlt.weekly_online_target - dlf.weekly_online_forecast) AS online_gap,
+  (dlt.weekly_offline_target - dlf.weekly_offline_forecast) AS offline_gap
+FROM 
+  ${ref("leads_aggregated")} AS lad
+LEFT JOIN 
+  ${ref("weekly_lead_target")} AS dlt
+ON 
+  lad.year_week = dlt.year_week
+LEFT JOIN 
+  ${ref("weekly_lead_forecast")} AS dlf
+ON 
+  lad.year_week = dlf.year_week
+ORDER BY 
+  lad.year_week desc
+)
+
+SELECT * FROM final
+
+  pre_operations {
+  CREATE TABLE IF NOT EXISTS ${self()} (
+    year_week STRING,
+    total_leads INT64,
+    online_leads INT64,
+    retail_leads INT64,
+    weekly_online_target FLOAT64,
+    weekly_offline_target FLOAT64,
+    weekly_total_target FLOAT64,
+    weekly_online_forecast FLOAT64,
+    weekly_offline_forecast FLOAT64,
+    weekly_total_forecast FLOAT64,
+    total_gap FLOAT64,
+    online_gap FLOAT64,
+    offline_gap FLOAT64
+  ) ;
+}

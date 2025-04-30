@@ -1,0 +1,52 @@
+config {
+  type: "table",
+  schema: "volvo",
+  name: "ytd_values",
+  description: " sum of values for the year & percent change"
+}
+
+WITH last_full_week AS (
+  -- Calculate the last full week based on the current date
+  SELECT FORMAT_DATE('%G-W%V', DATE_SUB(CURRENT_DATE(), INTERVAL 1 WEEK)) AS last_full_week
+),
+
+final AS(
+SELECT 
+  SUM(total_leads) AS ytd_total_leads,
+  SUM(online_leads) AS ytd_online_leads,
+  SUM(retail_leads) AS ytd_retailer_leads,
+  SUM(daily_online_target) AS ytd_online_target, 
+  SUM(daily_offline_target) AS ytd_retailer_target, 
+  SUM(daily_total_target) AS ytd_total_target,
+  SUM(daily_online_forecast) AS ytd_online_forecast, 
+  SUM(daily_offline_forecast) AS ytd_retailer_forecast,
+  SUM(daily_total_forecast) AS ytd_total_forecast,
+  -- Percentage change for total leads vs total target
+  IFNULL(((SUM(total_leads) - SUM(daily_total_target)) / SUM(daily_total_target)), 0) AS pct_change_total_leads_target,
+  IFNULL(((SUM(online_leads) - SUM(daily_online_target)) / SUM(daily_online_target)), 0) AS pct_change_online_leads_target,
+  IFNULL(((SUM(retail_leads) - SUM(daily_offline_target)) / SUM(daily_offline_target)), 0) AS pct_change_retailer_leads_target
+FROM ${ref("leads_final")},
+     last_full_week
+WHERE FORMAT_DATE('%G-W%V', date) BETWEEN '2025-W01' AND last_full_week.last_full_week
+)
+
+SELECT * FROM final
+
+  pre_operations {
+  CREATE TABLE IF NOT EXISTS ${self()} (
+    ytd_total_leads INT64,
+    ytd_online_leads INT64,
+    ytd_retailer_leads INT64,
+    ytd_online_target FLOAT64,
+    ytd_retailer_target FLOAT64,
+    ytd_total_target FLOAT64,
+    ytd_online_forecast FLOAT64,
+    ytd_retailer_forecast FLOAT64,
+    ytd_total_forecast FLOAT64,
+    pct_change_total_leads_target FLOAT64,
+    pct_change_online_leads_target FLOAT64,
+    pct_change_retailer_leads_target FLOAT64
+  ) ;
+}
+
+

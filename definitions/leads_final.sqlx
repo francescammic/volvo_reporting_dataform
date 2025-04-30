@@ -1,0 +1,53 @@
+config {
+  type: "table",
+  schema: "volvo",
+  name: "leads_final",
+  description: "daily leads aggregated joined with targets and forecast"
+}
+
+WITH final AS(
+SELECT 
+  lad.*,
+  dlt.daily_online_target, 
+  dlt.daily_offline_target, 
+  dlt.daily_total_target,
+  dlf.daily_online_forecast, 
+  dlf.daily_offline_forecast,
+  dlf.daily_total_forecast,
+  (dlt.daily_total_target - dlf.daily_total_forecast ) AS total_gap,
+  (dlt.daily_online_target - dlf.daily_online_forecast) AS online_gap,
+  (dlt.daily_offline_target - dlf.daily_offline_forecast) AS offline_gap
+FROM 
+  ${ref("leads_aggregated_day")} AS lad
+LEFT JOIN 
+  ${ref("daily_lead_target")} AS dlt
+ON 
+  lad.date = dlt.date
+LEFT JOIN 
+  ${ref("daily_lead_forecast")} AS dlf
+ON 
+  lad.date = dlf.date
+ORDER BY 
+  lad.date desc
+)
+
+SELECT * FROM final
+
+  pre_operations {
+  CREATE TABLE IF NOT EXISTS ${self()} (
+    date DATE,
+    year_week STRING,
+    total_leads INT64,
+    online_leads INT64,
+    retail_leads INT64,
+    daily_online_target FLOAT64,
+    daily_offline_target FLOAT64,
+    daily_total_target FLOAT64,
+    daily_online_forecast FLOAT64,
+    daily_offline_forecast FLOAT64,
+    daily_total_forecast FLOAT64,
+    total_gap FLOAT64,
+    online_gap FLOAT64,
+    offline_gap FLOAT64
+  ) ;
+}

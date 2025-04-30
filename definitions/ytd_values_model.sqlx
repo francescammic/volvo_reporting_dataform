@@ -1,0 +1,67 @@
+config {
+  type: "table",
+  schema: "volvo",
+  name: "ytd_values_model",
+  description: "sum of model 40 & EX30 values for the year & percent change"
+}
+
+WITH last_full_week AS (
+  -- Get the last full week number based on the current date
+  SELECT FORMAT_DATE('%G-W%V', DATE_SUB(CURRENT_DATE(), INTERVAL 1 WEEK)) AS last_full_week
+),
+
+final AS(
+SELECT 
+  model_name,
+  -- Sum for the last full week for each lead_type
+  SUM(CASE WHEN lead_type = 'online' THEN leads ELSE 0 END) AS ytd_online_leads,
+  SUM(CASE WHEN lead_type = 'retailer' THEN leads ELSE 0 END) AS ytd_retailer_leads,
+  SUM(leads) AS ytd_total_leads,
+  
+  SUM(CASE WHEN lead_type = 'online' THEN target ELSE 0 END) AS ytd_online_target,
+  SUM(CASE WHEN lead_type = 'retailer' THEN target ELSE 0 END) AS ytd_retailer_target,
+  SUM(target) AS ytd_total_target,
+  
+  SUM(CASE WHEN lead_type = 'online' THEN forecast ELSE 0 END) AS ytd_online_forecast,
+  SUM(CASE WHEN lead_type = 'retailer' THEN forecast ELSE 0 END) AS ytd_retailer_forecast,
+  SUM(forecast) AS ytd_total_forecast,
+
+    -- Total Leads vs Total Target
+  IFNULL(((SUM(CASE WHEN lead_type IN ('online', 'retailer') THEN leads ELSE 0 END) 
+           - SUM(target)) / SUM(target)), 0) AS pct_change_total_leads_target,
+  
+  -- Online Leads vs Online Target
+  IFNULL(((SUM(CASE WHEN lead_type = 'online' THEN leads ELSE 0 END) 
+           - SUM(CASE WHEN lead_type = 'online' THEN target ELSE 0 END)) 
+           / SUM(CASE WHEN lead_type = 'online' THEN target ELSE 0 END)), 0) AS pct_change_online_leads_target,
+  
+  -- Retailer Leads vs Retailer Target
+  IFNULL(((SUM(CASE WHEN lead_type = 'retailer' THEN leads ELSE 0 END) 
+           - SUM(CASE WHEN lead_type = 'retailer' THEN target ELSE 0 END)) 
+           / SUM(CASE WHEN lead_type = 'retailer' THEN target ELSE 0 END)), 0) AS pct_change_retailer_leads_target
+FROM ${ref("leads_model_daily_final")},
+     last_full_week  
+WHERE (FORMAT_DATE('%G-W%V', date) BETWEEN '2025-W01' AND last_full_week.last_full_week)
+AND (model_name = '40' OR model_name = 'EX30')
+GROUP BY model_name
+)
+
+SELECT * FROM final
+
+  pre_operations {
+  CREATE TABLE IF NOT EXISTS ${self()} (
+    model_name STRING,
+    ytd_total_leads INT64,
+    ytd_online_leads INT64,
+    ytd_retailer_leads INT64,
+    ytd_online_target FLOAT64,
+    ytd_retailer_target FLOAT64,
+    ytd_total_target FLOAT64,
+    ytd_online_forecast FLOAT64,
+    ytd_retailer_forecast FLOAT64,
+    ytd_total_forecast FLOAT64,
+    pct_change_total_leads_target FLOAT64,
+    pct_change_online_leads_target FLOAT64,
+    pct_change_retailer_leads_target FLOAT64
+  ) ;
+}

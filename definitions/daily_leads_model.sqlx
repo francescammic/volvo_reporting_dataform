@@ -1,0 +1,32 @@
+config {
+  type: "table",
+  schema: "volvo",
+  name: "daily_leads_model",
+  description: "daily targets & forecast by model",
+  dependencies: ["leads_monthly_model_update"]
+}
+
+WITH daily_targets AS (
+  SELECT
+    day_date AS date,
+    FORMAT_DATE('%G-W%V', day_date) AS iso_year_week,  
+    mt.model_name,
+    mt.lead_type,
+    mt.target / mt.days_in_month AS daily_target,
+    mt.forecast / mt.days_in_month AS daily_forecast
+  FROM `metricmavens.volvo.leads_monthly_model_update` mt
+  JOIN UNNEST(GENERATE_DATE_ARRAY(mt.month_start, mt.month_end, INTERVAL 1 DAY)) AS day_date  
+)
+
+SELECT * FROM daily_targets
+
+pre_operations {
+  CREATE TABLE IF NOT EXISTS ${self()} (
+    date DATE,
+    iso_year_week STRING,
+    model_name STRING,
+    lead_type STRING,
+    daily_target FLOAT64,
+    daily_forecast FLOAT64
+  ) ;
+}

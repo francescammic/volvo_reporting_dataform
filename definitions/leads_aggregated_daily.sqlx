@@ -1,0 +1,57 @@
+config {
+  type: "table",
+  schema: "volvo",
+  name: "leads_aggregated_day",
+  description: "daily leads aggregated from raw table only up till end of 2025"
+}
+
+WITH all_dates AS (
+  -- Generate a list of all dates from 2022-01-01 to 2025-12-31
+  SELECT DATE '2022-01-01' + INTERVAL x DAY AS date
+  FROM UNNEST(GENERATE_ARRAY(0, 1460)) AS x  -- Covers all days from Jan 1, 2022 to Dec 31, 2025
+),
+
+weekly_data AS (
+  SELECT
+    PARSE_DATE('%Y%m%d', Aanmaakdatum) AS date,  
+    FORMAT_DATE('%G-W%V', PARSE_DATE('%Y%m%d', Aanmaakdatum)) AS year_week, 
+    COUNT('Persoonsaccount: Account persoon Consumenten-ID') AS total_leads,
+    COUNT(CASE WHEN leadType = 'online' THEN 'Persoonsaccount: Account persoon Consumenten-ID' END) AS online_leads,
+    COUNT(CASE WHEN leadType = 'retailer' THEN 'Persoonsaccount: Account persoon Consumenten-ID' END) AS retail_leads
+  FROM `metricmavens.volvo.leads_unaggregated`
+  WHERE FORMAT_DATE('%Y-W%V', PARSE_DATE('%Y%m%d', Aanmaakdatum)) > '2021-W52' 
+  GROUP BY year_week, date
+),
+
+final AS(
+SELECT 
+  DATE(ad.date) AS date,  -- Ensures the date is in DATE format with no timestamp
+  FORMAT_DATE('%G-W%V', ad.date) AS year_week,  -- Week number for the date
+  COALESCE(wd.total_leads, 0) AS total_leads,
+  COALESCE(wd.online_leads, 0) AS online_leads,
+  COALESCE(wd.retail_leads, 0) AS retail_leads
+FROM 
+  all_dates ad
+LEFT JOIN 
+  weekly_data wd
+ON 
+  ad.date = wd.date
+WHERE 
+  ad.date BETWEEN '2022-01-01' AND '2025-12-31'  -- Include all dates from 2024 to 2025
+ORDER BY 
+  ad.date DESC
+)
+
+SELECT * FROM final
+
+  pre_operations {
+  CREATE TABLE IF NOT EXISTS ${self()} (
+    date DATE,
+    year_week STRING,
+    total_leads INT64,
+    online_leads INT64,
+    retail_leads INT64
+  ) ;
+}
+
+
