@@ -4,17 +4,32 @@ config {
   name: "daily_leads_model",
   description: "daily targets & forecast by model"
 }
---got rid of dependency line above
-WITH daily_targets AS (
+
+WITH month_targets AS(
+SELECT
+    DATE(month) AS month_start,  
+    DATE_TRUNC(DATE(month), MONTH) AS month_date,  
+    LAST_DAY(DATE(month)) AS month_end,  
+    EXTRACT(YEAR FROM DATE(month)) AS year,
+    EXTRACT(MONTH FROM DATE(month)) AS month,
+    DATE_DIFF(LAST_DAY(DATE(month)), DATE_TRUNC(DATE(month), MONTH), DAY) + 1 AS days_in_month,  
+    TRIM(model_name) AS model_name,
+    TRIM(lead_type) AS lead_type,
+    target,
+    forecast
+FROM `metricmavens.volvo.leads_monthly_model`
+),
+
+daily_targets AS (
   SELECT
     day_date AS date,
     FORMAT_DATE('%G-W%V', day_date) AS iso_year_week,  
-    mt.model_name,
-    mt.lead_type,
-    mt.target / mt.days_in_month AS daily_target,
-    mt.forecast / mt.days_in_month AS daily_forecast
-  FROM `metricmavens.volvo.leads_monthly_model` mt --changed this to direct table leads_monthly_model instead of leads_monthly_model_update
-  JOIN UNNEST(GENERATE_DATE_ARRAY(mt.month_start, mt.month_end, INTERVAL 1 DAY)) AS day_date  
+    model_name,
+    lead_type,
+    target / days_in_month AS daily_target,
+    forecast / days_in_month AS daily_forecast
+  FROM month_targets
+  JOIN UNNEST(GENERATE_DATE_ARRAY(month_start, month_end, INTERVAL 1 DAY)) AS day_date  
 )
 
 SELECT * FROM daily_targets

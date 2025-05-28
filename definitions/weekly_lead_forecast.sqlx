@@ -25,7 +25,6 @@ daily_forecast AS (
   SELECT 
     day_date AS date,
     FORMAT_DATE('%G-W%V', day_date) AS year_week,
-    #month_forecast.month AS month,
     online_forecast / days_in_month AS daily_online_forecast,
     offline_forecast / days_in_month AS daily_offline_forecast,
     total_forecast / days_in_month AS daily_total_forecast
