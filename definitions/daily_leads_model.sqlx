@@ -2,10 +2,9 @@ config {
   type: "table",
   schema: "volvo",
   name: "daily_leads_model",
-  description: "daily targets & forecast by model",
-  dependencies: ["leads_monthly_model_update"]
+  description: "daily targets & forecast by model"
 }
-
+--got rid of dependency line above
 WITH daily_targets AS (
   SELECT
     day_date AS date,
@@ -14,7 +13,7 @@ WITH daily_targets AS (
     mt.lead_type,
     mt.target / mt.days_in_month AS daily_target,
     mt.forecast / mt.days_in_month AS daily_forecast
-  FROM `metricmavens.volvo.leads_monthly_model_update` mt
+  FROM `metricmavens.volvo.leads_monthly_model` mt --changed this to direct table leads_monthly_model instead of leads_monthly_model_update
   JOIN UNNEST(GENERATE_DATE_ARRAY(mt.month_start, mt.month_end, INTERVAL 1 DAY)) AS day_date  
 )
 

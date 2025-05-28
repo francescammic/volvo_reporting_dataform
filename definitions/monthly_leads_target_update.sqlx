@@ -1,7 +1,7 @@
 config {
   type: "operations",
   tags: ["dependencies"],
-  description: "Ensures monthly_leads_target_update table is up to date"
+  description: "No longer used: Ensures monthly_leads_target_update table is up to date"
 }
 
 CREATE TABLE IF NOT EXISTS `metricmavens.volvo.monthly_leads_target_update` AS
