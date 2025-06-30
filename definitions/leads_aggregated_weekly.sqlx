@@ -5,6 +5,7 @@ config {
   description: "weekly leads aggregated from raw table only up till end of 2025"
 }
 
+
 WITH all_weeks AS (
   -- Generate a list of all weeks starting on Mondays from 2024-W01 to 2026-W01
   SELECT
@@ -17,7 +18,9 @@ weekly_data AS (
     FORMAT_DATE('%G-W%V', PARSE_DATE('%Y%m%d', Aanmaakdatum)) AS year_week, 
     COUNT('Persoonsaccount: Account persoon Consumenten-ID') AS total_leads,
     COUNT(CASE WHEN leadType = 'online' THEN 'Persoonsaccount: Account persoon Consumenten-ID' END) AS online_leads,
-    COUNT(CASE WHEN leadType = 'retailer' THEN 'Persoonsaccount: Account persoon Consumenten-ID' END) AS retail_leads
+    COUNT(CASE WHEN leadType = 'retailer' THEN 'Persoonsaccount: Account persoon Consumenten-ID' END) AS retail_leads,
+    COUNT(CASE WHEN leadType = 'campaign' THEN 'Persoonsaccount: Account persoon Consumenten-ID' END) AS campaign_leads,
+
   FROM `metricmavens.volvo.leads_unaggregated`
   WHERE FORMAT_DATE('%Y-W%V', PARSE_DATE('%Y%m%d', Aanmaakdatum)) > '2023-W52' 
   GROUP BY year_week
@@ -28,7 +31,8 @@ final AS(
     aw.year_week,
     COALESCE(wd.total_leads, 0) AS total_leads,
     COALESCE(wd.online_leads, 0) AS online_leads,
-    COALESCE(wd.retail_leads, 0) AS retail_leads
+    COALESCE(wd.retail_leads, 0) AS retail_leads,
+    COALESCE(wd.campaign_leads, 0) AS campaign_leads,
   FROM 
     all_weeks aw
   LEFT JOIN 
@@ -47,6 +51,7 @@ pre_operations {
     total_leads INT64,
     online_leads INT64,
     retail_leads INT64,
+    campaign_leads INT64
   ) ;
 }
 

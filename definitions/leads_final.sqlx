@@ -7,7 +7,11 @@ config {
 
 WITH final AS(
 SELECT 
-  lad.*,
+  lad.date,
+  lad.year_week,
+  lad.total_leads,
+  (lad.online_leads + lad.campaign_leads) AS online_leads,
+  lad.retail_leads, 
   dlt.daily_online_target, 
   dlt.daily_offline_target, 
   dlt.daily_total_target,

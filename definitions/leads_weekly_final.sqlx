@@ -4,10 +4,13 @@ config {
   name: "leads_weekly_final",
   description: "weekly leads aggregated joined with targets and forecast"
 }
-
+--here would add a new column for campaign_leads, but then there wouldnt be targets and forecast separated. should campaign leads here be combined with online leads?
 WITH final AS(
 SELECT 
-  lad.*,
+  lad.year_week,
+  lad.total_leads,
+  (lad.online_leads + lad.campaign_leads) AS online_leads,
+  lad.retail_leads, 
   dlt.weekly_online_target, 
   dlt.weekly_offline_target, 
   dlt.weekly_total_target,
