@@ -7,10 +7,20 @@ config {
 
 
 WITH all_weeks AS (
-  -- Generate a list of all weeks starting on Mondays from 2024-W01 to 2026-W01
+  -- Generate every Monday between 2024-01-01 and 2026-12-31, convert to ISO week format
   SELECT
-    FORMAT_DATE('%G-W%V', DATE_TRUNC(DATE '2024-01-01' + INTERVAL (7 * x) DAY, WEEK(MONDAY))) AS year_week
-  FROM UNNEST(GENERATE_ARRAY(0, 104)) AS x  -- This generates all weeks from 2024-W01 to 2026-W01 
+    FORMAT_DATE('%G-W%V', week_start) AS year_week
+  FROM (
+    SELECT
+      DATE_TRUNC(DATE '2024-01-01' + INTERVAL x DAY, WEEK(MONDAY)) AS week_start
+    FROM UNNEST(
+      GENERATE_ARRAY(
+        0,
+        DATE_DIFF('2026-12-31', '2024-01-01', DAY)
+      )
+    ) AS x
+  )
+  GROUP BY week_start   -- avoid duplicates caused by multiple days truncating to same Monday
 ),
 
 weekly_data AS (

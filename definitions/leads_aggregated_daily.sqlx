@@ -8,7 +8,7 @@ config {
 WITH all_dates AS (
   -- Generate a list of all dates from 2022-01-01 to 2025-12-31
   SELECT DATE '2022-01-01' + INTERVAL x DAY AS date
-  FROM UNNEST(GENERATE_ARRAY(0, 1460)) AS x  -- Covers all days from Jan 1, 2022 to Dec 31, 2025
+  FROM UNNEST(GENERATE_ARRAY(0, DATE_DIFF('2026-12-31', '2022-01-01', DAY))) AS x
 ),
 
 weekly_data AS (
@@ -39,7 +39,7 @@ LEFT JOIN
 ON 
   ad.date = wd.date
 WHERE 
-  ad.date BETWEEN '2022-01-01' AND '2025-12-31'  -- Include all dates from 2024 to 2025
+  ad.date BETWEEN '2022-01-01' AND '2026-12-31'  -- Include all dates from 2022 to 2026
 ORDER BY 
   ad.date DESC
 )
