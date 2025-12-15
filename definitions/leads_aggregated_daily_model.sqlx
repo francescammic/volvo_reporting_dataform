@@ -20,7 +20,10 @@ daily_data AS (
   SELECT
     PARSE_DATE('%Y%m%d', Aanmaakdatum) AS date,  
     FORMAT_DATE('%G-W%V', PARSE_DATE('%Y%m%d', Aanmaakdatum)) AS year_week, 
-    model_name, 
+    CASE 
+      WHEN model_name = 'EX6' THEN 'EX60' --model name in raw data is incorrect
+      ELSE model_name
+    END AS model_name,
     leadType AS lead_type,
     COUNT('Persoonsaccount: Account persoon Consumenten-ID') AS total_leads,
   FROM `metricmavens.volvo.leads_unaggregated`
